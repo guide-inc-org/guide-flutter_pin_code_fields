@@ -62,7 +62,7 @@ class PinCodeTextField extends StatefulWidget {
   ///
   /// Set this to empty function if you don't want the keyboard to automatically close
   /// when user presses done/next.
-  VoidCallback? onEditingComplete;
+  final VoidCallback? onEditingComplete;
 
   /// the style of the text, default is [ fontSize: 20, fontWeight: FontWeight.bold]
   final TextStyle? textStyle;
@@ -214,6 +214,9 @@ class PinCodeTextField extends StatefulWidget {
   /// Builds separator children
   final IndexedWidgetBuilder? separatorBuilder;
 
+  /// Enable native context menu for paste functionality
+  final bool enableNativeContextMenu;
+
   PinCodeTextField({
     Key? key,
     required this.appContext,
@@ -279,6 +282,7 @@ class PinCodeTextField extends StatefulWidget {
     this.useExternalAutoFillGroup = false,
     this.scrollPadding = const EdgeInsets.all(20),
     this.separatorBuilder,
+    this.enableNativeContextMenu = false,
   })  : assert(obscuringCharacter.isNotEmpty),
         super(key: key);
 
@@ -762,7 +766,7 @@ class _PinCodeTextFieldState extends State<PinCodeTextField>
           // trigger on the complete event handler from the keyboard
           onFieldSubmitted: widget.onSubmitted,
           onEditingComplete: widget.onEditingComplete,
-          enableInteractiveSelection: false,
+          enableInteractiveSelection: widget.enableNativeContextMenu,
           showCursor: false,
           // using same as background color so tha it can blend into the view
           cursorWidth: 0.01,
@@ -802,7 +806,7 @@ class _PinCodeTextFieldState extends State<PinCodeTextField>
           children: <Widget>[
             AbsorbPointer(
               // this is a hidden textfield under the pin code fields.
-              absorbing: true, // it prevents on tap on the text field
+              absorbing: !widget.enableNativeContextMenu, // allow interaction with text field for context menu
               child: widget.useExternalAutoFillGroup
                   ? textField
                   : AutofillGroup(
@@ -821,14 +825,91 @@ class _PinCodeTextFieldState extends State<PinCodeTextField>
                 },
                 onLongPress: widget.enabled
                     ? () async {
-                        var data = await Clipboard.getData("text/plain");
-                        if (data?.text?.isNotEmpty ?? false) {
-                          if (widget.beforeTextPaste != null) {
-                            if (widget.beforeTextPaste!(data!.text)) {
-                              _showPasteDialog(data.text!);
+                        if (widget.enableNativeContextMenu) {
+                          // Check if clipboard has data
+                          final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+                          if (clipboardData == null || clipboardData.text == null || clipboardData.text!.isEmpty) {
+                            return; // Don't show menu if clipboard is empty
+                          }
+                          
+                          // Show native context menu with proper localization
+                          final RenderBox renderBox = context.findRenderObject() as RenderBox;
+                          final offset = renderBox.localToGlobal(Offset.zero);
+                          
+                          // Calculate position based on current selected field
+                          final fieldWidth = _pinTheme.fieldWidth;
+                          final padding = _pinTheme.fieldOuterPadding;
+                          final totalFieldWidth = fieldWidth + padding.horizontal;
+                          
+                          // Calculate x position for the current field
+                          double xPosition = offset.dx;
+                          if (_selectedIndex > 0) {
+                            xPosition += _selectedIndex * totalFieldWidth;
+                          }
+                          
+                          // Adjust position to center the menu above the field
+                          final menuWidth = 80.0; // Approximate menu width
+                          final centerX = xPosition + (fieldWidth / 2) - (menuWidth / 2);
+                          
+                          // Show context menu above the current field
+                          showMenu(
+                            context: context,
+                            position: RelativeRect.fromLTRB(
+                              centerX.clamp(0, MediaQuery.of(context).size.width - menuWidth),
+                              offset.dy - 8, // Position above the field
+                              centerX + menuWidth,
+                              offset.dy + _pinTheme.fieldHeight,
+                            ),
+                            elevation: 8,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            items: [
+                              PopupMenuItem(
+                                height: 42,
+                                padding: EdgeInsets.symmetric(horizontal: 20),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      MaterialLocalizations.of(context).pasteButtonLabel,
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                onTap: () async {
+                                  // Use Future.delayed to avoid clipboard access during build
+                                  Future.delayed(Duration.zero, () async {
+                                    final data = await Clipboard.getData(Clipboard.kTextPlain);
+                                    if (data != null && data.text != null) {
+                                      final pasteText = data.text!.trim();
+                                      if (widget.beforeTextPaste != null) {
+                                        if (widget.beforeTextPaste!(pasteText)) {
+                                          _textEditingController!.text = pasteText;
+                                        }
+                                      } else {
+                                        _textEditingController!.text = pasteText;
+                                      }
+                                    }
+                                  });
+                                },
+                              ),
+                            ],
+                          );
+                        } else {
+                          // Show custom dialog
+                          var data = await Clipboard.getData("text/plain");
+                          if (data?.text?.isNotEmpty ?? false) {
+                            if (widget.beforeTextPaste != null) {
+                              if (widget.beforeTextPaste!(data!.text)) {
+                                _showPasteDialog(data.text!);
+                              }
+                            } else {
+                              _showPasteDialog(data!.text!);
                             }
-                          } else {
-                            _showPasteDialog(data!.text!);
                           }
                         }
                       }
