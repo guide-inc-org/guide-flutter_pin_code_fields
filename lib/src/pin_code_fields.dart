@@ -293,6 +293,11 @@ class _PinCodeTextFieldState extends State<PinCodeTextField>
   late List<String> _inputList;
   int _selectedIndex = 0;
   BorderRadius? borderRadius;
+  
+  // Debug log variables
+  final List<String> _debugLogs = [];
+  final ScrollController _logScrollController = ScrollController();
+  static const int _maxLogEntries = 100;
 
   // Whether the character has blinked
   bool _hasBlinked = false;
@@ -320,6 +325,26 @@ class _PinCodeTextFieldState extends State<PinCodeTextField>
   PinTheme get _pinTheme => widget.pinTheme;
 
   Timer? _blinkDebounce;
+  
+  void _addDebugLog(String message) {
+    final timestamp = DateTime.now().toString().substring(11, 23);
+    _setState(() {
+      _debugLogs.add('[$timestamp] $message');
+      if (_debugLogs.length > _maxLogEntries) {
+        _debugLogs.removeAt(0);
+      }
+    });
+    // Auto-scroll to bottom
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_logScrollController.hasClients) {
+        _logScrollController.animateTo(
+          _logScrollController.position.maxScrollExtent,
+          duration: Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
 
   TextStyle get _textStyle => TextStyle(
         fontSize: 20,
@@ -350,6 +375,7 @@ class _PinCodeTextFieldState extends State<PinCodeTextField>
     }
     _focusNode = widget.focusNode ?? FocusNode();
     _focusNode!.addListener(() {
+      _addDebugLog('FocusNode: hasFocus=${_focusNode!.hasFocus}, selectedIndex=$_selectedIndex');
       _setState(() {});
     }); // Rebuilds on every change to reflect the correct color on each field.
     _inputList = List<String>.filled(widget.length, "");
@@ -449,6 +475,8 @@ class _PinCodeTextFieldState extends State<PinCodeTextField>
       _textEditingController =  widget.controller ?? TextEditingController();
 
     _textEditingController?.addListener(() {
+      _addDebugLog('TextController: text="${_textEditingController!.text}", selection=${_textEditingController!.selection}');
+      
       if (widget.useHapticFeedback) {
         runHapticFeedback();
       }
@@ -460,20 +488,26 @@ class _PinCodeTextFieldState extends State<PinCodeTextField>
       _debounceBlink();
 
       var currentText = _textEditingController!.text;
+      _addDebugLog('Text: "$currentText" (len:${currentText.length}), inputList:"${_inputList.join("")}"');
 
       if (widget.enabled && _inputList.join("") != currentText) {
+        _addDebugLog('Text changed, processing...');
         if (currentText.length >= widget.length) {
           if (widget.onCompleted != null) {
             if (currentText.length > widget.length) {
               // removing extra text longer than the length
               currentText = currentText.substring(0, widget.length);
+              _addDebugLog('Text truncated to length ${widget.length}');
             }
             //  delay the onComplete event handler to give the onChange event handler enough time to complete
             Future.delayed(Duration(milliseconds: 300),
                 () => widget.onCompleted!(currentText));
           }
 
-          if (widget.autoDismissKeyboard) _focusNode!.unfocus();
+          if (widget.autoDismissKeyboard) {
+            _addDebugLog('Auto dismissing keyboard');
+            _focusNode!.unfocus();
+          }
         }
         widget.onChanged?.call(currentText);
       }
@@ -518,6 +552,7 @@ class _PinCodeTextFieldState extends State<PinCodeTextField>
     _errorAnimationSubscription?.cancel();
 
     _cursorController.dispose();
+    _logScrollController.dispose();
 
     _controller.dispose();
     super.dispose();
@@ -528,9 +563,16 @@ class _PinCodeTextFieldState extends State<PinCodeTextField>
     if (!widget.enabled) {
       return _pinTheme.disabledColor;
     }
-    if (((_selectedIndex == index) ||
+    
+    bool isSelected = ((_selectedIndex == index) ||
             (_selectedIndex == index + 1 && index + 1 == widget.length)) &&
-        _focusNode!.hasFocus) {
+        _focusNode!.hasFocus;
+    
+    if (index == 0) { // Debug only for first cell
+      _addDebugLog('getColor(0): selectedIdx=$_selectedIndex, hasFocus=${_focusNode!.hasFocus}, isSelected=$isSelected');
+    }
+    
+    if (isSelected) {
       return _pinTheme.selectedColor;
     } else if (_selectedIndex > index) {
       Color relevantActiveColor = _pinTheme.activeColor;
@@ -731,6 +773,77 @@ class _PinCodeTextFieldState extends State<PinCodeTextField>
     );
   }
 
+  Widget _buildDebugLogWidget() {
+    return Container(
+      height: 150,
+      margin: EdgeInsets.only(top: 10),
+      decoration: BoxDecoration(
+        color: Colors.black87,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade600),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.black,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(7),
+                topRight: Radius.circular(7),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Debug Logs',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    _setState(() {
+                      _debugLogs.clear();
+                    });
+                    _addDebugLog('Logs cleared');
+                  },
+                  child: Text(
+                    'Clear',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              controller: _logScrollController,
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              itemCount: _debugLogs.length,
+              itemBuilder: (context, index) {
+                return Text(
+                  _debugLogs[index],
+                  style: TextStyle(
+                    color: Colors.green.shade400,
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     Directionality textField = Directionality(
@@ -788,27 +901,34 @@ class _PinCodeTextFieldState extends State<PinCodeTextField>
       ),
     );
 
-    return SlideTransition(
-      position: _offsetAnimation,
-      child: Container(
-        // adding the extra space at the bottom to show the error text from validator
-        height: widget.pinTheme.fieldHeight * 2,
-        color: widget.backgroundColor,
-        child: Column(
-          children: <Widget>[
-            AbsorbPointer(
-              // this is a hidden textfield under the pin code fields.
-              absorbing: true, // it prevents on tap on the text field
-              child: widget.useExternalAutoFillGroup
-                  ? textField
-                  : AutofillGroup(
-                      onDisposeAction: widget.onAutoFillDisposeAction,
-                      child: textField,
-                    ),
-            ),
-            GestureDetector(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SlideTransition(
+          position: _offsetAnimation,
+          child: Container(
+            // adding the extra space at the bottom to show the error text from validator
+            height: widget.pinTheme.fieldHeight * 2,
+            color: widget.backgroundColor,
+            child: Column(
+              children: <Widget>[
+                AbsorbPointer(
+                  // this is a hidden textfield under the pin code fields.
+                  absorbing: true, // it prevents on tap on the text field
+                  child: widget.useExternalAutoFillGroup
+                      ? textField
+                      : AutofillGroup(
+                          onDisposeAction: widget.onAutoFillDisposeAction,
+                          child: textField,
+                        ),
+                ),
+                GestureDetector(
               onTap: () {
-                if (widget.onTap != null) widget.onTap!();
+                _addDebugLog('GestureDetector: onTap triggered');
+                if (widget.onTap != null) {
+                  _addDebugLog('Calling widget.onTap');
+                  widget.onTap!();
+                }
                 _onFocus();
               },
               onLongPress: widget.enabled
@@ -825,14 +945,17 @@ class _PinCodeTextFieldState extends State<PinCodeTextField>
                       }
                     }
                   : null,
-              child: Row(
-                mainAxisAlignment: widget.mainAxisAlignment,
-                children: _generateFields(),
-              ),
+                  child: Row(
+                    mainAxisAlignment: widget.mainAxisAlignment,
+                    children: _generateFields(),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
+        _buildDebugLogWidget(),
+      ],
     );
   }
 
@@ -912,21 +1035,31 @@ class _PinCodeTextFieldState extends State<PinCodeTextField>
   }
 
   void _onFocus() {
+    _addDebugLog('_onFocus: autoUnfocus=${widget.autoUnfocus}, hasFocus=${_focusNode!.hasFocus}, viewInsets=${MediaQuery.of(widget.appContext).viewInsets.bottom}');
+    
     if (widget.autoUnfocus) {
       if (_focusNode!.hasFocus &&
           MediaQuery.of(widget.appContext).viewInsets.bottom == 0) {
+        _addDebugLog('Unfocusing and re-focusing');
         _focusNode!.unfocus();
         Future.delayed(
-            const Duration(microseconds: 1), () => _focusNode!.requestFocus());
+            const Duration(microseconds: 1), () {
+              _addDebugLog('Re-requesting focus after delay');
+              _focusNode!.requestFocus();
+            });
       } else {
+        _addDebugLog('Requesting focus directly');
         _focusNode!.requestFocus();
       }
     } else {
+      _addDebugLog('Requesting focus (autoUnfocus=false)');
       _focusNode!.requestFocus();
     }
   }
 
   void _setTextToInput(String data) async {
+    _addDebugLog('_setTextToInput: data="$data" (len:${data.length}), oldIdx=$_selectedIndex, oldList=$_inputList');
+    
     var replaceInputList = List<String>.filled(widget.length, "");
 
     for (int i = 0; i < widget.length; i++) {
@@ -937,6 +1070,8 @@ class _PinCodeTextFieldState extends State<PinCodeTextField>
       _selectedIndex = data.length;
       _inputList = replaceInputList;
     });
+    
+    _addDebugLog('After update: newIdx=$_selectedIndex, newList=$_inputList');
   }
 
   List<Widget> _getActionButtons(String pastedText) {
