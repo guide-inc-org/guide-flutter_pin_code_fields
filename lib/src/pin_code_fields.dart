@@ -763,24 +763,24 @@ class _PinCodeTextFieldState extends State<PinCodeTextField>
           onFieldSubmitted: widget.onSubmitted,
           onEditingComplete: widget.onEditingComplete,
           enableInteractiveSelection: false,
-          showCursor: false,
+          // showCursor: false,
           // using same as background color so tha it can blend into the view
-          cursorWidth: 0.01,
-          decoration: InputDecoration(
-            contentPadding: const EdgeInsets.all(0),
-            border: InputBorder.none,
-            fillColor: widget.backgroundColor,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            disabledBorder: InputBorder.none,
-          ),
-          style: TextStyle(
-            color: Colors.transparent,
-            height: .01,
-            fontSize: kIsWeb
-                ? 1
-                : 0.01, // it is a hidden textfield which should remain transparent and extremely small
-          ),
+          // cursorWidth: 0.01,
+          // decoration: InputDecoration(
+          //   contentPadding: const EdgeInsets.all(0),
+          //   border: InputBorder.none,
+          //   fillColor: widget.backgroundColor,
+          //   enabledBorder: InputBorder.none,
+          //   focusedBorder: InputBorder.none,
+          //   disabledBorder: InputBorder.none,
+          // ),
+          // style: TextStyle(
+          //   color: Colors.transparent,
+          //   height: .01,
+          //   fontSize: kIsWeb
+          //       ? 1
+          //       : 0.01, // it is a hidden textfield which should remain transparent and extremely small
+          // ),
           scrollPadding: widget.scrollPadding,
           readOnly: widget.readOnly,
           obscureText: widget.obscureText,
@@ -792,13 +792,9 @@ class _PinCodeTextFieldState extends State<PinCodeTextField>
       position: _offsetAnimation,
       child: Container(
         // adding the extra space at the bottom to show the error text from validator
-        height: (widget.autovalidateMode == AutovalidateMode.disabled &&
-                widget.validator == null)
-            ? widget.pinTheme.fieldHeight
-            : widget.pinTheme.fieldHeight + widget.errorTextSpace,
+        height: widget.pinTheme.fieldHeight * 2,
         color: widget.backgroundColor,
-        child: Stack(
-          alignment: Alignment.bottomCenter,
+        child: Column(
           children: <Widget>[
             AbsorbPointer(
               // this is a hidden textfield under the pin code fields.
@@ -810,33 +806,28 @@ class _PinCodeTextFieldState extends State<PinCodeTextField>
                       child: textField,
                     ),
             ),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: GestureDetector(
-                onTap: () {
-                  if (widget.onTap != null) widget.onTap!();
-                  _onFocus();
-                },
-                onLongPress: widget.enabled
-                    ? () async {
-                        var data = await Clipboard.getData("text/plain");
-                        if (data?.text?.isNotEmpty ?? false) {
-                          if (widget.beforeTextPaste != null) {
-                            if (widget.beforeTextPaste!(data!.text)) {
-                              _showPasteDialog(data.text!);
-                            }
-                          } else {
-                            _showPasteDialog(data!.text!);
+            GestureDetector(
+              onTap: () {
+                if (widget.onTap != null) widget.onTap!();
+                _onFocus();
+              },
+              onLongPress: widget.enabled
+                  ? () async {
+                      var data = await Clipboard.getData("text/plain");
+                      if (data?.text?.isNotEmpty ?? false) {
+                        if (widget.beforeTextPaste != null) {
+                          if (widget.beforeTextPaste!(data!.text)) {
+                            _showPasteDialog(data.text!);
                           }
+                        } else {
+                          _showPasteDialog(data!.text!);
                         }
                       }
-                    : null,
-                child: Row(
-                  mainAxisAlignment: widget.mainAxisAlignment,
-                  children: _generateFields(),
-                ),
+                    }
+                  : null,
+              child: Row(
+                mainAxisAlignment: widget.mainAxisAlignment,
+                children: _generateFields(),
               ),
             ),
           ],
