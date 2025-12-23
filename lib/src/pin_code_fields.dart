@@ -215,6 +215,8 @@ class PinCodeTextField extends StatefulWidget {
   /// Enable auto unfocus
   final bool autoUnfocus;
 
+  final bool isE2ETestEnabled;
+
   /// Builds separator children
   final IndexedWidgetBuilder? separatorBuilder;
 
@@ -285,6 +287,7 @@ class PinCodeTextField extends StatefulWidget {
     this.separatorBuilder,
     this.enableTextPaste = true,
     this.onHandleTextCopyPaste,
+    this.isE2ETestEnabled = false,
   })  : assert(obscuringCharacter.isNotEmpty),
         super(key: key);
 
@@ -787,7 +790,7 @@ class _PinCodeTextFieldState extends State<PinCodeTextField> with TickerProvider
           children: <Widget>[
             AbsorbPointer(
               // this is a hidden textfield under the pin code fields.
-              absorbing: true, // it prevents on tap on the text field
+              absorbing: !widget.isE2ETestEnabled, // it prevents on tap on the text field
               child: widget.useExternalAutoFillGroup
                   ? textField
                   : AutofillGroup(
