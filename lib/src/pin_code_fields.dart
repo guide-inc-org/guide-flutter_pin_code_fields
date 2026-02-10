@@ -551,7 +551,7 @@ class _PinCodeTextFieldState extends State<PinCodeTextField> with TickerProvider
   }
 
   Widget _renderPinField({
-    @required int? index,
+    required int? index,
   }) {
     assert(index != null);
 
@@ -675,7 +675,7 @@ class _PinCodeTextFieldState extends State<PinCodeTextField> with TickerProvider
                 text: TextSpan(
                   text: _dialogConfig.dialogContent,
                   style: TextStyle(
-                    color: Theme.of(context).textTheme.button!.color,
+                    color: Theme.of(context).textTheme.labelLarge!.color,
                   ),
                   children: [
                     TextSpan(
@@ -685,7 +685,7 @@ class _PinCodeTextFieldState extends State<PinCodeTextField> with TickerProvider
                     TextSpan(
                       text: "?",
                       style: TextStyle(
-                        color: Theme.of(context).textTheme.button!.color,
+                        color: Theme.of(context).textTheme.labelLarge!.color,
                       ),
                     )
                   ],
@@ -701,7 +701,7 @@ class _PinCodeTextFieldState extends State<PinCodeTextField> with TickerProvider
               content: RichText(
                 text: TextSpan(
                   text: _dialogConfig.dialogContent,
-                  style: TextStyle(color: Theme.of(context).textTheme.button!.color),
+                  style: TextStyle(color: Theme.of(context).textTheme.labelLarge!.color),
                   children: [
                     TextSpan(
                       text: formattedPastedText,
@@ -710,7 +710,7 @@ class _PinCodeTextFieldState extends State<PinCodeTextField> with TickerProvider
                     TextSpan(
                       text: " ?",
                       style: TextStyle(
-                        color: Theme.of(context).textTheme.button!.color,
+                        color: Theme.of(context).textTheme.labelLarge!.color,
                       ),
                     )
                   ],
